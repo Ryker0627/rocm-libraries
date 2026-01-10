@@ -33,6 +33,9 @@
 #include "hiptensor_options.hpp"
 #include "plancache_autotune.hpp"
 
+#include "util.hpp"
+
+
 hiptensorStatus_t hiptensorPermute(const hiptensorHandle_t handle,
                                    const hiptensorPlan_t   plan,
                                    const void*             alpha,
@@ -128,15 +131,31 @@ hiptensorStatus_t hiptensorPermute(const hiptensorHandle_t handle,
     else
     {
         auto& instances = hiptensor::ElementwiseSolutionInstances::instance();
-        solutions       = instances->query({alphaF},
+#ifdef UNARY_OP_BEFORE_PERMUTE
+        std::vector<hiptensorOperator_t> unaryOps{HIPTENSOR_OP_IDENTITY, HIPTENSOR_OP_IDENTITY};
+#else
+        std::vector<hiptensorOperator_t> unaryOps{plan->mOpDesc->mOpA, plan->mOpDesc->mOpB};
+#endif
+        solutions   = instances->query({alphaF},
                                      descA->mLengths,
                                      {descA->mType},
                                      {descB->mType},
                                      {{modeA, modeA + descA->mLengths.size()}},
                                      {{modeB, modeB + descB->mLengths.size()}},
-                                     {plan->mOpDesc->mOpA, plan->mOpDesc->mOpB},
-                                     hiptensor::ElementwiseExecutionSpaceType_t::DEVICE);
+                                     unaryOps,   //{plan->mOpDesc->mOpA, plan->mOpDesc->mOpB},
+                                     hiptensor::ElementwiseExecutionSpaceType_t::DEVICE);    
     }
+
+    float unaryOpTime = 0.0f;
+#ifdef UNARY_OP_BEFORE_PERMUTE
+    if(plan->mOpDesc->mOpA != HIPTENSOR_OP_IDENTITY)
+    {
+        std::size_t dataSize = hiptensor::elementsFromLengths(plan->mOpDesc->mDescA->mLengths);
+        unaryOpTime += hiptensor::unaryOpTensor(
+            plan->mOpDesc->mDescA->mType, const_cast<void*>(A), dataSize, plan->mOpDesc->mOpA);
+    }
+    std::cout << "Unary op time on Permute: " << unaryOpTime << " ms" << std::endl;
+#endif
 
     bool canRun = false;
     for(auto pSolution : solutions)
@@ -172,6 +191,9 @@ hiptensorStatus_t hiptensorPermute(const hiptensorHandle_t handle,
                 {
                     return HIPTENSOR_STATUS_CK_ERROR;
                 }
+
+                // Add unary op time to permutation time for overall performance metrics
+                time = time + unaryOpTime;
 
                 auto flops = std::size_t(2) * pSolution->problemSize();
                 auto bytes = (hiptensor::hiptensorDataTypeSize(descA->mType)

@@ -271,4 +271,6 @@ namespace hiptensor
         checkResult = errorCode;                                  \
     }
 
+    float unaryOpTensor(const hiptensorDataType_t dataType, void* tensor, std::size_t dataSize, hiptensorOperator_t op);
+
 } // namespace hiptensor

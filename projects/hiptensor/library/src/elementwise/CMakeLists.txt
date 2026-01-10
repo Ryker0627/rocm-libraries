@@ -94,3 +94,5 @@ set(HIPTENSOR_ELEMENTWISE_SOURCES
 )
 
 add_hiptensor_component(hiptensor_elementwise ${HIPTENSOR_ELEMENTWISE_SOURCES})
+
+#target_compile_definitions(hiptensor_elementwise PRIVATE UNARY_OP_BEFORE_PERMUTE)

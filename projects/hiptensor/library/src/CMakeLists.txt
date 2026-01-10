@@ -40,6 +40,9 @@ function(add_hiptensor_component COMPONENT_NAME COMPONENT_SOURCES)
     # so that they build for all archs in GPU_TARGETS
     add_library(${COMPONENT_NAME} OBJECT ${COMPONENT_SOURCES})
     target_compile_options(${COMPONENT_NAME} PRIVATE ${CLANG_DRIVER_MODE})
+
+    target_compile_definitions(${COMPONENT_NAME} PRIVATE EXP_USE_SWITCH)
+
     target_link_options(${COMPONENT_NAME} PRIVATE ${CLANG_DRIVER_MODE})
     set_target_properties(${COMPONENT_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
     target_link_libraries(${COMPONENT_NAME} PRIVATE hip::device)
@@ -90,6 +93,7 @@ set(HIPTENSOR_CORE_SOURCES
    ${CMAKE_CURRENT_SOURCE_DIR}/handle.cpp
    ${CMAKE_CURRENT_SOURCE_DIR}/hiptensor_options.cpp
    ${CMAKE_CURRENT_SOURCE_DIR}/plan_cache.cpp
+   ${CMAKE_CURRENT_SOURCE_DIR}/util.cpp
 )
 
 add_hiptensor_component(hiptensor_core ${HIPTENSOR_CORE_SOURCES})

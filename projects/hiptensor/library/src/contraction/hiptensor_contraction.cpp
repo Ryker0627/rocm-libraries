@@ -337,6 +337,28 @@ hiptensorStatus_t hiptensorContract(const hiptensorHandle_t handle,
         return errorCode;
     }
 
+    // Perform unary ops if needed and measure time for perf trace logging 
+    float unaryOpTime = 0.0f;
+    if(plan->mOpDesc->mOpA != HIPTENSOR_OP_IDENTITY)
+    {
+        std::size_t dataSize = hiptensor::elementsFromLengths(plan->mOpDesc->mDescA->mLengths);
+        unaryOpTime += hiptensor::unaryOpTensor(
+            plan->mOpDesc->mDescA->mType, const_cast<void*>(A), dataSize, plan->mOpDesc->mOpA);
+    }
+    if(plan->mOpDesc->mOpB != HIPTENSOR_OP_IDENTITY)
+    {
+        std::size_t dataSize = hiptensor::elementsFromLengths(plan->mOpDesc->mDescB->mLengths);
+        unaryOpTime += hiptensor::unaryOpTensor(
+            plan->mOpDesc->mDescB->mType, const_cast<void*>(B), dataSize, plan->mOpDesc->mOpB);
+    }
+    if(plan->mOpDesc->mOpC != HIPTENSOR_OP_IDENTITY && plan->mOpDesc->mDescC != nullptr)
+    {
+        std::size_t dataSize = hiptensor::elementsFromLengths(plan->mOpDesc->mDescC->mLengths);
+        unaryOpTime += hiptensor::unaryOpTensor(
+            plan->mOpDesc->mDescC->mType, const_cast<void*>(C), dataSize, plan->mOpDesc->mOpC);
+    }
+    std::cout << "Unary op time: " << unaryOpTime << " ms" << std::endl;
+
     auto*             cSolution = (hiptensor::ContractionSolution*)(plan->mPref->mSolution);
     hiptensorStatus_t errorCode = HIPTENSOR_STATUS_SUCCESS;
     float             time      = 0.0f;
@@ -381,6 +403,9 @@ hiptensorStatus_t hiptensorContract(const hiptensorHandle_t handle,
             std::tie(m, n, k) = cSolution->problemDims();
             auto flops        = std::size_t(2) * m * n * k;
             auto bytes        = cSolution->problemBytes();
+
+            // Add unary op time to kernel time for overall perf metrics
+            time = time + unaryOpTime;
 
             hiptensor::PerfMetrics metrics = {
                 cSolution->uid(), // id
